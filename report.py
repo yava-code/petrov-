@@ -1,0 +1,55 @@
+import shutil
+from pathlib import Path
+import openpyxl
+from openpyxl.styles import Font
+import config
+
+RED = Font(color="CC0000", bold=True)
+
+# куди яку інфу ліпити в ексельку
+COLS = {
+    "date": 1, "type": 2, "phone": 3,
+    "predstavlennia": 6, "kuzov": 7, "rik": 8, "probig": 9,
+    "diagnostika": 10, "mynuli_roboty": 11, "zapys": 12, "proschannia": 13,
+    "robota": 14, "instrukcii": 15, "result": 17, "ocinka": 18,
+    "zapchastyny": 19, "comment": 20, "score": 21,
+}
+
+def write(rows):
+    dest = Path(config.OUT_XLSX)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(config.TEMPLATE_XLSX, dest)
+    
+    wb = openpyxl.load_workbook(dest)
+    ws = wb.active # працюємо з першим листом
+    ws.cell(row=2, column=COLS["score"], value="Бали")
+
+    r_idx = 3
+    for r in rows:
+        def put(key, val):
+            return ws.cell(row=r_idx, column=COLS[key], value=val)
+
+        put("date", r["date"])
+        put("type", "Вхідний")
+        put("phone", r["phone"])
+        
+        info = r["analysis"]
+        for k in config.SCORE_KEYS:
+            put(k, info[k])
+            
+        put("zapys", "так" if info["zapys"] else "")
+        put("robota", info["robota"])
+        put("result", info["result"])
+        put("ocinka", "погано" if not info["ok"] else "добре")
+        put("zapchastyny", info["zapchastyny"])
+        
+        cmt_cell = put("comment", info["comment"])
+        if not info["ok"]:
+            cmt_cell.font = RED
+            ws.cell(row=r_idx, column=COLS["ocinka"]).font = RED
+            
+        put("score", info["score"])
+        r_idx += 1
+
+    wb.save(dest)
+    return str(dest)

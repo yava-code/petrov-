@@ -6,13 +6,13 @@ import config
 
 RED = Font(color="CC0000", bold=True)
 
-# куди яку інфу ліпити в ексельку
+# мапа колонок таблиці
 COLS = {
     "date": 1, "type": 2, "phone": 3,
     "predstavlennia": 6, "kuzov": 7, "rik": 8, "probig": 9,
     "diagnostika": 10, "mynuli_roboty": 11, "zapys": 12, "proschannia": 13,
-    "robota": 14, "instrukcii": 15, "result": 17, "ocinka": 18,
-    "zapchastyny": 19, "comment": 20, "score": 21,
+    "robota": 14, "instrukcii": 15, "rekomendacii": 16, "result": 17, 
+    "ocinka": 18, "zapchastyny": 19, "comment": 20, "score": 21,
 }
 
 def write(rows):
@@ -21,7 +21,9 @@ def write(rows):
     shutil.copy(config.TEMPLATE_XLSX, dest)
     
     wb = openpyxl.load_workbook(dest)
-    ws = wb.active # працюємо з першим листом
+    ws = wb['Лист1'] if 'Лист1' in wb.sheetnames else wb.active
+    
+    # заголовок для нової колонки балів
     ws.cell(row=2, column=COLS["score"], value="Бали")
 
     r_idx = 3
@@ -31,7 +33,14 @@ def write(rows):
 
         put("date", r["date"])
         put("type", "Вхідний")
-        put("phone", r["phone"])
+        
+        # телефон пишемо числом якщо там тільки цифри
+        p_val = r["phone"]
+        try:
+            p_val = int(p_val)
+        except ValueError:
+            pass
+        put("phone", p_val)
         
         info = r["analysis"]
         for k in config.SCORE_KEYS:
@@ -39,11 +48,14 @@ def write(rows):
             
         put("zapys", "так" if info["zapys"] else "")
         put("robota", info["robota"])
+        put("rekomendacii", info["rekomendacii"])
         put("result", info["result"])
         put("ocinka", "погано" if not info["ok"] else "добре")
         put("zapchastyny", info["zapchastyny"])
         
         cmt_cell = put("comment", info["comment"])
+        
+        # якщо менеджер накосячив — фарбуємо коментар та оцінку червоним
         if not info["ok"]:
             cmt_cell.font = RED
             ws.cell(row=r_idx, column=COLS["ocinka"]).font = RED

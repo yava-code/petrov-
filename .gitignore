@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+data/audio/*
+!data/audio/.gitkeep
+data/transcripts/*
+!data/transcripts/.gitkeep
+out/*
+!out/.gitkeep
+.idea/
+.vscode/
+venv/
+.venv/

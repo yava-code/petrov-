@@ -1,21 +1,33 @@
 from pathlib import Path
-from faster_whisper import WhisperModel
+import requests
 import config
 
-_engine = None
-
-def get_engine():
-    global _engine
-    if _engine is None:
-        # юзаємо проц і int8 щоб не мучитись з драйверами відяхи
-        _engine = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="int8")
-    return _engine
-
 def transcribe(path):
-    model = get_engine()
-    # мову не задаємо бо часто микс мов або суржик
-    segments, _ = model.transcribe(str(path), vad_filter=True)
-    return " ".join(s.text.strip() for s in segments).strip()
+    if not config.DEEPGRAM_KEY:
+        raise ValueError("не вказано DEEPGRAM_API_KEY у .env")
+        
+    url = "https://api.deepgram.com/v1/listen"
+    hdrs = {
+        "Authorization": f"Token {config.DEEPGRAM_KEY}",
+        "Content-Type": "audio/mpeg"
+    }
+    
+    # читаємо байти файлу
+    with open(path, "rb") as fh:
+        audio_data = fh.read()
+        
+    # відправляємо в хмару deepgram
+    res = requests.post(
+        url, 
+        headers=hdrs, 
+        params=config.DEEPGRAM_PARAMS, 
+        data=audio_data, 
+        timeout=60
+    )
+    res.raise_for_status()
+    data = res.json()
+    
+    return data["results"]["channels"][0]["alternatives"][0]["transcript"]
 
 def transcribe_dir(src, out):
     out_path = Path(out)
@@ -24,13 +36,17 @@ def transcribe_dir(src, out):
     results = {}
     for f in sorted(Path(src).glob("*.mp3")):
         txt = out_path / (f.stem + ".txt")
+        # перевіряємо текстовий кеш
         if txt.exists():
             results[f.name] = txt.read_text(encoding="utf-8")
             continue
             
-        print(f"  обробляю {f.name}")
-        text = transcribe(f)
-        txt.write_text(text, encoding="utf-8")
-        results[f.name] = text
-        
+        print(f"  транскрибую {f.name}")
+        try:
+            text = transcribe(f)
+            txt.write_text(text, encoding="utf-8")
+            results[f.name] = text
+        except Exception as e:
+            print(f"  помилка STT для {f.name}: {e}")
+            
     return results

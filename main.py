@@ -1,5 +1,6 @@
 import re
 import shutil
+import json
 from pathlib import Path
 import transcribe
 import analyze
@@ -16,19 +17,16 @@ def parse_call(fname):
     return day, "38" + cell
 
 def init_env():
-    # створюємо необхідні папки
     Path(config.AUDIO_DIR).mkdir(parents=True, exist_ok=True)
     Path(config.TRANSCRIPT_DIR).mkdir(parents=True, exist_ok=True)
     Path(config.OUT_XLSX).parent.mkdir(parents=True, exist_ok=True)
     
-    # копіюємо шаблон у правильне місце
     tpl = Path(config.TEMPLATE_XLSX)
     if not tpl.exists():
         src_tpl = Path("Звіт прослуханих розмов (1).xlsx")
         if src_tpl.exists():
             shutil.copy(src_tpl, tpl)
             
-    # копіюємо тз для порядку
     tz = Path("Тз_пайтон.docx")
     if not tz.exists():
         src_tz = Path("Тз пайтон (1).docx")
@@ -38,10 +36,9 @@ def init_env():
 def run():
     init_env()
     
-    # перевіряємо чи є що аналізувати
     audio_files = list(Path(config.AUDIO_DIR).glob("*.mp3"))
     if not audio_files:
-        print(f"немає mp3 файлів у папці {config.AUDIO_DIR}, закинь туди записи для роботи")
+        print(f"немає mp3 файлів у папці {config.AUDIO_DIR}, закинь записи")
         return
         
     print("-> транскрибуємо")
@@ -54,21 +51,48 @@ def run():
         if not day:
             continue
         print(f"   {name}")
+        
+        # перевіряємо чи є вже готовий успішний аналіз
+        json_path = Path(config.TRANSCRIPT_DIR) / (Path(name).stem + ".json")
+        ans = None
+        
+        if json_path.exists():
+            try:
+                with open(json_path, "r", encoding="utf-8") as fh:
+                    cached = json.load(fh)
+                if not cached.get("failed_analysis"):
+                    ans = cached
+                    print("     (взято з кешу)")
+            except Exception:
+                pass
+                
+        # якщо кешу немає або була помилка, робимо новий запит
+        if ans is None:
+            ans = analyze.analyze(txt)
+            # кешуємо тільки успішні розбори
+            if not ans.get("failed_analysis"):
+                try:
+                    with open(json_path, "w", encoding="utf-8") as fh:
+                        json.dump(ans, fh, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+                    
         rows.append({
             "date": day, "phone": phone, "file": name,
-            "analysis": analyze.analyze(txt)
+            "analysis": ans
         })
         
     if not rows:
-        print("немає коректних даних для запису")
+        print("немає коректних даних")
         return
         
     print("-> записуємо звіт")
     path = report.write(rows)
-    bad_calls = sum(1 for r in rows if not r["analysis"]["ok"])
+    bad = sum(1 for r in rows if not r["analysis"].get("failed_analysis") and not r["analysis"].get("ok"))
+    failed = sum(1 for r in rows if r["analysis"].get("failed_analysis"))
     
     print(f"\nготово. файл: {path}")
-    print(f"всього {len(rows)} дзвінків, проблемних — {bad_calls}")
+    print(f"всього {len(rows)} дзвінків, проблемних — {bad}, не проаналізовано — {failed}")
 
 if __name__ == "__main__":
     run()

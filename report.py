@@ -4,9 +4,9 @@ import openpyxl
 from openpyxl.styles import Font
 import config
 
+# червоний напівжирний шрифт для поганих оцінок/коментарів
 RED = Font(color="CC0000", bold=True)
 
-# мапа колонок таблиці
 COLS = {
     "date": 1, "type": 2, "phone": 3,
     "predstavlennia": 6, "kuzov": 7, "rik": 8, "probig": 9,
@@ -22,8 +22,6 @@ def write(rows):
     
     wb = openpyxl.load_workbook(dest)
     ws = wb['Лист1'] if 'Лист1' in wb.sheetnames else wb.active
-    
-    # заголовок для нової колонки балів
     ws.cell(row=2, column=COLS["score"], value="Бали")
 
     r_idx = 3
@@ -34,7 +32,6 @@ def write(rows):
         put("date", r["date"])
         put("type", "Вхідний")
         
-        # телефон пишемо числом якщо там тільки цифри
         p_val = r["phone"]
         try:
             p_val = int(p_val)
@@ -50,13 +47,26 @@ def write(rows):
         put("robota", info["robota"])
         put("rekomendacii", info["rekomendacii"])
         put("result", info["result"])
-        put("ocinka", "погано" if not info["ok"] else "добре")
+        
+        # оцінка розмови
+        if info.get("failed_analysis"):
+            ocinka = "—"
+            is_red = False
+        else:
+            # оцінка базується на балах з конфігу
+            score = info.get("score")
+            if score is not None and score != "" and int(score) >= config.GOOD_SCORE_THRESHOLD:
+                ocinka = "добре"
+                is_red = False
+            else:
+                ocinka = "погано"
+                is_red = True
+                
+        put("ocinka", ocinka)
         put("zapchastyny", info["zapchastyny"])
         
         cmt_cell = put("comment", info["comment"])
-        
-        # якщо менеджер накосячив — фарбуємо коментар та оцінку червоним
-        if not info["ok"]:
+        if is_red:
             cmt_cell.font = RED
             ws.cell(row=r_idx, column=COLS["ocinka"]).font = RED
             

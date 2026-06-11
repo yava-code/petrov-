@@ -5,13 +5,24 @@ load_dotenv()
 
 # авторизація для нейромережі
 CEREBRAS_KEY = os.getenv("CEREBRAS_API_KEY", "")
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "medium")
 CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "zai-glm-4.7")
+
+# конфігурація deepgram stt
+DEEPGRAM_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+DEEPGRAM_PARAMS = {
+    "model": "nova-2",
+    "language": "uk",
+    "smart_format": "true",
+    "punctuate": "true"
+}
 
 AUDIO_DIR = "data/audio"
 TRANSCRIPT_DIR = "data/transcripts"
 TEMPLATE_XLSX = "data/Звіт_прослуханих_розмов.xlsx"
 OUT_XLSX = "out/Звіт_заповнений.xlsx"
+
+# поріг балів для оцінки "добре"
+GOOD_SCORE_THRESHOLD = 6
 
 # ключі для підрахунку балів
 SCORE_KEYS = [

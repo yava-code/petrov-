@@ -16,6 +16,11 @@ DEEPGRAM_PARAMS = {
     "punctuate": "true"
 }
 
+# конфігурація Google Drive
+SOURCE_FOLDER_ID = os.getenv("SOURCE_FOLDER_ID", "1R3hDscEc_Ujh1FytqWROg4tS__qcO1Ub")
+WORK_FOLDER_NAME = os.getenv("WORK_FOLDER_NAME", "Робоча папка аналізатора")
+DRIVE_MODE = False
+
 AUDIO_DIR = "data/audio"
 TRANSCRIPT_DIR = "data/transcripts"
 TEMPLATE_XLSX = "data/Звіт_прослуханих_розмов.xlsx"
